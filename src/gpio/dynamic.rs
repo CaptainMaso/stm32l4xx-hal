@@ -48,6 +48,25 @@ impl Dynamic {
             OutputPushPull | OutputOpenDrain => true,
         }
     }
+
+    pub(super) fn moder(&self) -> u32 {
+        match self {
+            Dynamic::InputFloating => 0b00,
+            Dynamic::InputPullUp => 0b00,
+            Dynamic::InputPullDown => 0b00,
+            Dynamic::OutputPushPull => 0b01,
+            Dynamic::OutputOpenDrain => 0b01,
+        }
+    }
+
+    pub(super) fn otyper(&self) -> Option<u32> {
+        match self {
+            Dynamic::OutputPushPull => Some(0b00),
+            Dynamic::OutputOpenDrain => Some(0b01),
+            _ => None
+        }
+        
+    }
 }
 
 // For convertion simplify

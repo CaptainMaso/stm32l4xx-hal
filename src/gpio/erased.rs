@@ -34,7 +34,7 @@ impl<MODE> PinExt for ErasedPin<MODE> {
 }
 
 impl<MODE> ErasedPin<MODE> {
-    pub(crate) fn new(port: u8, pin: u8) -> Self {
+    pub(crate) const fn new(port: u8, pin: u8) -> Self {
         Self {
             pin_port: port << 4 | pin,
             _mode: PhantomData,

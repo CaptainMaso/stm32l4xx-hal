@@ -10,7 +10,7 @@ pub struct PartiallyErasedPin<const P: char, MODE> {
 }
 
 impl<const P: char, MODE> PartiallyErasedPin<P, MODE> {
-    pub(crate) fn new(i: u8) -> Self {
+    pub(crate) const fn new(i: u8) -> Self {
         Self {
             i,
             _mode: PhantomData,
