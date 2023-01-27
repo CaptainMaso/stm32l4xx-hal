@@ -4,13 +4,15 @@ use crate::rcc::{Enable, APB2};
 
 /// External Interrupt Pin
 pub trait ExtiPin {
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2);
-    fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
-    fn enable_interrupt(&mut self, exti: &mut EXTI);
-    fn disable_interrupt(&mut self, exti: &mut EXTI);
-    fn clear_interrupt_pending_bit(&mut self);
-    fn check_interrupt(&self) -> bool;
-    fn interrupt(&self) -> Interrupt;
+    type Result<T>;
+
+    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) -> Self::Result<()>;
+    fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge) -> Self::Result<()>;
+    fn enable_interrupt(&mut self, exti: &mut EXTI) -> Self::Result<()>;
+    fn disable_interrupt(&mut self, exti: &mut EXTI) -> Self::Result<()>;
+    fn clear_interrupt_pending_bit(&mut self) -> Self::Result<()>;
+    fn check_interrupt(&self) -> Self::Result<bool>;
+    fn interrupt(&self) -> Self::Result<Interrupt>;
 }
 
 impl<PIN> ExtiPin for PIN
@@ -18,6 +20,8 @@ where
     PIN: PinExt,
     PIN::Mode: marker::Interruptable,
 {
+    type Result<T> = T;
+
     /// Make corresponding EXTI line sensitive to this pin
     #[inline(always)]
     fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {

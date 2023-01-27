@@ -384,15 +384,6 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     pub const  fn erase(self) -> ErasedPin<MODE> {
         ErasedPin::new(P as u8 - b'A', N)
     }
-
-    /// Erases the pin number, port and mode from the type
-    ///
-    /// This is useful when you want to collect the pins into an array where you
-    /// need all the elements to have the same type and need to free switch between
-    /// modes
-    pub const fn flex(self, mode : Dynamic) -> FlexPin {
-        FlexPin::new(P as u8 - b'A', N, mode)
-    }
 }
 
 impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {

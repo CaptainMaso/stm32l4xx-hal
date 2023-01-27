@@ -10,6 +10,7 @@ pub struct DynamicPin<const P: char, const N: u8> {
 }
 
 /// Tracks the current pin state for dynamic pins
+#[derive(Clone,Copy,Debug)]
 pub enum Dynamic {
     /// Floating input mode
     InputFloating,
@@ -23,6 +24,7 @@ pub enum Dynamic {
     OutputOpenDrain,
 }
 
+
 /// Error for [DynamicPin]
 #[derive(Debug, PartialEq)]
 pub enum PinModeError {
@@ -33,6 +35,15 @@ pub enum PinModeError {
 impl Dynamic {
     /// Is pin in readable mode
     pub fn is_input(&self) -> bool {
+        use Dynamic::*;
+        match self {
+            InputFloating | InputPullUp | InputPullDown | OutputOpenDrain => true,
+            OutputPushPull => false,
+        }
+    }
+
+    /// Is pin in interruptable mode
+    pub fn is_interruptable(&self) -> bool {
         use Dynamic::*;
         match self {
             InputFloating | InputPullUp | InputPullDown | OutputOpenDrain => true,
@@ -73,7 +84,9 @@ impl Dynamic {
 struct Unknown;
 
 impl crate::Sealed for Unknown {}
-impl PinMode for Unknown {}
+impl PinMode for Unknown {
+    const SELF: Self = Unknown;
+}
 
 impl<const P: char, const N: u8> DynamicPin<P, N> {
     pub(super) const fn new(mode: Dynamic) -> Self {

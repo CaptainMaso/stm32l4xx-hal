@@ -112,9 +112,123 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
     /// Configures the pin as a pin that can change between input
     /// and output without changing the type. It starts out
     /// as a floating input
-    pub fn into_dynamic(self, moder: &mut MODER<P>, pupdr: &mut PUPDR<P>) -> DynamicPin<P, N> {
+    pub fn into_dynamic(
+        self, 
+        moder: &mut MODER<P>,
+        _otyper: &mut OTYPER<P>,
+        pupdr: &mut PUPDR<P>
+    ) -> DynamicPin<P, N> {
         self.into_floating_input(moder, pupdr);
         DynamicPin::new(Dynamic::InputFloating)
+    }
+
+    /// Erases the pin number, port and mode from the type
+    ///
+    /// Configures the pin as an erased pin that can change
+    /// between input and output without changing the type.
+    /// 
+    /// This is useful when you want to collect the pins into 
+    /// an array where you need all the elements to have the 
+    /// same type and need to free switch between modes.
+    /// 
+    /// WARNING: This type does not adhere to the standard
+    /// safety limitations that other GPIO pins do, namely
+    /// that it does not require mutable access to a GPIO
+    /// Register to edit the types. In normal cases, this 
+    /// usually will not cause issues as the register writes
+    /// are atomic, but just in case this type will disable
+    /// interrupts during the conversion between modes.
+    pub fn into_flex(
+        self, 
+        _moder: &mut MODER<P>,
+        _otyper: &mut OTYPER<P>,
+        pupdr: &mut PUPDR<P>
+    ) -> FlexPin {
+        if let Some(mode) = MODE::SELF.dynamic() {
+            FlexPin::new(P as u8 - b'A',N,mode)
+        }
+        else {
+            let mut tmp = self.into_mode::<Input>();
+            tmp.set_internal_resistor(pupdr, Pull::None);
+            FlexPin::new(P as u8 - b'A',N, Dynamic::InputFloating)
+        }
+    }
+
+    /// Erases the pin number, port and mode from the type
+    ///
+    /// Configures the pin as an erased pin that can change
+    /// between input and output without changing the type.
+    /// 
+    /// This is useful when you want to collect the pins into 
+    /// an array where you need all the elements to have the 
+    /// same type and need to free switch between modes.
+    /// 
+    /// WARNING: This type does not adhere to the standard
+    /// safety limitations that other GPIO pins do, namely
+    /// that it does not require mutable access to a GPIO
+    /// Register to edit the types. In normal cases, this 
+    /// usually will not cause issues as the register writes
+    /// are atomic, but just in case this type will disable
+    /// interrupts during the conversion between modes.
+    pub fn into_flex_mode(
+        self, 
+        new_mode : Dynamic,
+        _moder: &mut MODER<P>,
+        _otyper: &mut OTYPER<P>,
+        pupdr: &mut PUPDR<P>,
+    ) -> FlexPin {
+        let mut new = if let Some(mode) = MODE::SELF.dynamic() {
+            FlexPin::new(P as u8 - b'A',N,mode)
+        }
+        else {
+            let mut tmp = self.into_mode::<Input>();
+            tmp.set_internal_resistor(pupdr, Pull::None);
+            FlexPin::new(P as u8 - b'A',N, Dynamic::InputFloating)
+        };
+
+        new.change_mode(new_mode);
+        new
+    }
+
+    /// Erases the pin number, port and mode from the type
+    ///
+    /// Configures the pin as an erased pin that can change
+    /// between input and output without changing the type.
+    /// 
+    /// This is useful when you want to collect the pins into 
+    /// an array where you need all the elements to have the 
+    /// same type and need to free switch between modes.
+    /// 
+    /// WARNING: This type does not adhere to the standard
+    /// safety limitations that other GPIO pins do, namely
+    /// that it does not require mutable access to a GPIO
+    /// Register to edit the types. In normal cases, this 
+    /// usually will not cause issues as the register writes
+    /// are atomic, but just in case this type will disable
+    /// interrupts during the conversion between modes.
+    pub fn into_flex_mode_state(
+        self, 
+        new_mode : Dynamic,
+        state : PinState,
+        _moder: &mut MODER<P>,
+        _otyper: &mut OTYPER<P>,
+        pupdr: &mut PUPDR<P>,
+    ) -> Result<FlexPin,PinModeError> {
+        let mut new = if let Some(mode) = MODE::SELF.dynamic() {
+            FlexPin::new(P as u8 - b'A',N,mode)
+        }
+        else {
+            let mut tmp = self.into_mode::<Input>();
+            tmp.set_internal_resistor(pupdr, Pull::None);
+            FlexPin::new(P as u8 - b'A',N, Dynamic::InputFloating)
+        };
+
+        new.change_mode(new_mode);
+        match state {
+            PinState::Low => new.set_low()?,
+            PinState::High => new.set_high()?,
+        }
+        Ok(new)
     }
 
     /// Puts `self` into mode `M`.
@@ -171,6 +285,7 @@ impl<const P: char, const N: u8, MODE: PinMode> Pin<P, N, MODE> {
 pub trait PinMode: crate::Sealed {
     // These constants are used to implement the pin configuration code.
     // They are not part of public API.
+    const SELF: Self;
 
     #[doc(hidden)]
     const MODER: u32 = u32::MAX;
@@ -178,37 +293,55 @@ pub trait PinMode: crate::Sealed {
     const OTYPER: Option<u32> = None;
     #[doc(hidden)]
     const AFR: Option<u32> = None;
+
+    fn dynamic(&self) -> Option<Dynamic> { None }
 }
 
 impl crate::Sealed for Input {}
 impl PinMode for Input {
+    const SELF: Self = Self;
     const MODER: u32 = 0b00;
+
+    fn dynamic(&self) -> Option<Dynamic> {
+        Some(Dynamic::InputFloating)
+    }
 }
 
 impl crate::Sealed for Analog {}
 impl PinMode for Analog {
+    const SELF: Self = Self;
     const MODER: u32 = 0b11;
 }
 
 impl<Otype> crate::Sealed for Output<Otype> {}
 impl PinMode for Output<OpenDrain> {
+    const SELF: Self = Self{ _mode : PhantomData };
     const MODER: u32 = 0b01;
     const OTYPER: Option<u32> = Some(0b1);
+    fn dynamic(&self) -> Option<Dynamic> {
+        Some(Dynamic::OutputOpenDrain)
+    }
 }
 
 impl PinMode for Output<PushPull> {
+    const SELF: Self = Self{ _mode : PhantomData };
     const MODER: u32 = 0b01;
     const OTYPER: Option<u32> = Some(0b0);
+    fn dynamic(&self) -> Option<Dynamic> {
+        Some(Dynamic::OutputPushPull)
+    }
 }
 
 impl<const A: u8, Otype> crate::Sealed for Alternate<A, Otype> {}
 impl<const A: u8> PinMode for Alternate<A, OpenDrain> {
+    const SELF: Self = Self(PhantomData);
     const MODER: u32 = 0b10;
     const OTYPER: Option<u32> = Some(0b1);
     const AFR: Option<u32> = Some(A as _);
 }
 
 impl<const A: u8> PinMode for Alternate<A, PushPull> {
+    const SELF: Self = Self(PhantomData);
     const MODER: u32 = 0b10;
     const OTYPER: Option<u32> = Some(0b0);
     const AFR: Option<u32> = Some(A as _);
